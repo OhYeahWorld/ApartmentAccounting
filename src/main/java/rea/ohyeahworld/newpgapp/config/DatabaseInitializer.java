@@ -22,13 +22,44 @@ public class DatabaseInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // Старые таблицы без created_at/updated_at и новых ограничений —
+        // пересоздаем схему вместе с триггерами (CREATE OR REPLACE не помогает
+        // изменить столбцы и CHECK-ограничения).
+        if (needsRebuild()) {
+            jdbc.execute("""
+                    DROP TABLE IF EXISTS payments CASCADE;
+                    DROP TABLE IF EXISTS charges CASCADE;
+                    DROP TABLE IF EXISTS saldo CASCADE;
+                    """);
+            jdbc.execute("DROP FUNCTION IF EXISTS fn_next_opening_balance(INTEGER, DATE) CASCADE");
+            jdbc.execute("DROP FUNCTION IF EXISTS fn_recalc_saldo_chain(INTEGER) CASCADE");
+            jdbc.execute("DROP FUNCTION IF EXISTS trg_saldo_before_write() CASCADE");
+            jdbc.execute("DROP FUNCTION IF EXISTS trg_saldo_after_write() CASCADE");
+            jdbc.execute("DROP FUNCTION IF EXISTS trg_charges_after_write() CASCADE");
+            jdbc.execute("DROP FUNCTION IF EXISTS trg_payments_after_write() CASCADE");
+            jdbc.execute("DROP FUNCTION IF EXISTS trg_charges_normalize_period() CASCADE");
+        }
+
         runScript("db/schema.sql");
+        runFunction("db/functions/fn_next_opening_balance.sql");
         runFunction("db/functions/fn_turnover_statement.sql");
         runFunction("db/functions/fn_apartment_statement.sql");
         runFunction("db/functions/fn_debtor_categories.sql");
 
         if (demoDataEnabled && isEmpty()) {
             runScript("db/data.sql");
+        }
+    }
+
+    private boolean needsRebuild() {
+        try {
+            Integer n = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_name = 'saldo' AND column_name IN ('created_at', 'updated_at')
+                    """, Integer.class);
+            return n != null && n < 2;
+        } catch (Exception e) {
+            return false;
         }
     }
 

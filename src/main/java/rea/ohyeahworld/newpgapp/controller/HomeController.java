@@ -29,7 +29,9 @@ public class HomeController {
 
     @GetMapping("/")
     public String home(Model model) {
-        LocalDate asOf = LocalDate.of(2017, 10, 1);
+        // отчетная дата — начало текущего месяца (данные за прошлые годы
+        // учитываются через входящее сальдо / историю начислений и платежей)
+        LocalDate asOf = LocalDate.now().withDayOfMonth(1);
         model.addAttribute("saldoCount", saldoRepository.count());
         model.addAttribute("chargesCount", chargeRepository.count());
         model.addAttribute("paymentsCount", paymentRepository.count());

@@ -1,5 +1,6 @@
 package rea.ohyeahworld.newpgapp.controller;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -7,8 +8,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import rea.ohyeahworld.newpgapp.model.Payment;
 import rea.ohyeahworld.newpgapp.repository.PaymentRepository;
+import rea.ohyeahworld.newpgapp.service.DataValidationException;
+import rea.ohyeahworld.newpgapp.service.PaymentService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,9 +19,11 @@ import java.time.LocalDate;
 @RequestMapping("/payments")
 public class PaymentsController {
     private final PaymentRepository repository;
+    private final PaymentService service;
 
-    public PaymentsController(PaymentRepository repository) {
+    public PaymentsController(PaymentRepository repository, PaymentService service) {
         this.repository = repository;
+        this.service = service;
     }
 
     @GetMapping
@@ -35,10 +39,13 @@ public class PaymentsController {
                          @RequestParam(required = false) String description,
                          RedirectAttributes redirect) {
         try {
-            repository.insert(new Payment(null, apartmentNumber, paymentDate, amount, description));
+            service.create(apartmentNumber, paymentDate, amount, description);
             redirect.addFlashAttribute("message", "Платеж добавлен.");
-        } catch (Exception e) {
-            redirect.addFlashAttribute("error", "Не удалось добавить платеж.");
+        } catch (DataValidationException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirect.addFlashAttribute("error", rootMessage(e,
+                    "Не удалось добавить платеж."));
         }
         return "redirect:/payments";
     }
@@ -51,18 +58,41 @@ public class PaymentsController {
                          @RequestParam(required = false) String description,
                          RedirectAttributes redirect) {
         try {
-            repository.update(new Payment(id, apartmentNumber, paymentDate, amount, description));
+            service.update(id, apartmentNumber, paymentDate, amount, description);
             redirect.addFlashAttribute("message", "Платеж изменен.");
-        } catch (Exception e) {
-            redirect.addFlashAttribute("error", "Не удалось изменить платеж.");
+        } catch (DataValidationException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirect.addFlashAttribute("error", rootMessage(e,
+                    "Не удалось изменить платеж."));
         }
         return "redirect:/payments";
     }
 
     @PostMapping("/delete")
     public String delete(@RequestParam Long id, RedirectAttributes redirect) {
-        repository.delete(id);
-        redirect.addFlashAttribute("message", "Платеж удален.");
+        try {
+            service.delete(id);
+            redirect.addFlashAttribute("message", "Платеж удален.");
+        } catch (DataValidationException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirect.addFlashAttribute("error", rootMessage(e,
+                    "Не удалось удалить платеж."));
+        }
         return "redirect:/payments";
+    }
+
+    private static String rootMessage(DataIntegrityViolationException e, String fallback) {
+        Throwable t = e.getMostSpecificCause();
+        String message = t != null ? t.getMessage() : null;
+        if (message == null || message.isBlank()) {
+            return fallback;
+        }
+        int idx = message.indexOf('\n');
+        if (idx >= 0 && idx + 1 < message.length()) {
+            message = message.substring(idx + 1);
+        }
+        return message.trim();
     }
 }

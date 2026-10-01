@@ -1,5 +1,6 @@
 package rea.ohyeahworld.newpgapp.controller;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -7,8 +8,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import rea.ohyeahworld.newpgapp.model.Charge;
 import rea.ohyeahworld.newpgapp.repository.ChargeRepository;
+import rea.ohyeahworld.newpgapp.service.ChargeService;
+import rea.ohyeahworld.newpgapp.service.DataValidationException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,9 +19,11 @@ import java.time.LocalDate;
 @RequestMapping("/charges")
 public class ChargesController {
     private final ChargeRepository repository;
+    private final ChargeService service;
 
-    public ChargesController(ChargeRepository repository) {
+    public ChargesController(ChargeRepository repository, ChargeService service) {
         this.repository = repository;
+        this.service = service;
     }
 
     @GetMapping
@@ -35,10 +39,13 @@ public class ChargesController {
                          @RequestParam(required = false) String description,
                          RedirectAttributes redirect) {
         try {
-            repository.insert(new Charge(null, apartmentNumber, period, amount, description));
+            service.create(apartmentNumber, period, amount, description);
             redirect.addFlashAttribute("message", "Начисление добавлено.");
-        } catch (Exception e) {
-            redirect.addFlashAttribute("error", "Не удалось добавить начисление. Возможно, такая квартира за этот месяц уже есть.");
+        } catch (DataValidationException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirect.addFlashAttribute("error", rootMessage(e,
+                    "Не удалось добавить начисление. Возможно, такая квартира за этот месяц уже есть."));
         }
         return "redirect:/charges";
     }
@@ -51,18 +58,41 @@ public class ChargesController {
                          @RequestParam(required = false) String description,
                          RedirectAttributes redirect) {
         try {
-            repository.update(new Charge(id, apartmentNumber, period, amount, description));
+            service.update(id, apartmentNumber, period, amount, description);
             redirect.addFlashAttribute("message", "Начисление изменено.");
-        } catch (Exception e) {
-            redirect.addFlashAttribute("error", "Не удалось изменить начисление.");
+        } catch (DataValidationException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirect.addFlashAttribute("error", rootMessage(e,
+                    "Не удалось изменить начисление."));
         }
         return "redirect:/charges";
     }
 
     @PostMapping("/delete")
     public String delete(@RequestParam Long id, RedirectAttributes redirect) {
-        repository.delete(id);
-        redirect.addFlashAttribute("message", "Начисление удалено.");
+        try {
+            service.delete(id);
+            redirect.addFlashAttribute("message", "Начисление удалено.");
+        } catch (DataValidationException e) {
+            redirect.addFlashAttribute("error", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            redirect.addFlashAttribute("error", rootMessage(e,
+                    "Не удалось удалить начисление."));
+        }
         return "redirect:/charges";
+    }
+
+    private static String rootMessage(DataIntegrityViolationException e, String fallback) {
+        Throwable t = e.getMostSpecificCause();
+        String message = t != null ? t.getMessage() : null;
+        if (message == null || message.isBlank()) {
+            return fallback;
+        }
+        int idx = message.indexOf('\n');
+        if (idx >= 0 && idx + 1 < message.length()) {
+            message = message.substring(idx + 1);
+        }
+        return message.trim();
     }
 }

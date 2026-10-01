@@ -1,3 +1,4 @@
+-- Оборотная ведомость по одной квартире за год.
 CREATE OR REPLACE FUNCTION fn_apartment_statement(p_apartment INTEGER, p_year INTEGER)
 RETURNS TABLE (
     month_no INTEGER,
@@ -10,6 +11,7 @@ RETURNS TABLE (
     ending_payable NUMERIC(12,2)
 )
 LANGUAGE sql
+STABLE
 AS $$
 WITH months AS (
     SELECT generate_series(1, 12)::INTEGER AS month_no
@@ -20,7 +22,16 @@ WITH months AS (
         WHERE s.apartment_number = p_apartment
           AND s.period = make_date(p_year, 1, 1)
         LIMIT 1
-    ), 0)::NUMERIC(12,2) AS opening_balance
+    ), (
+        SELECT COALESCE(
+            (SELECT SUM(c.amount) FROM charges c
+             WHERE c.apartment_number = p_apartment
+               AND date_trunc('year', c.period)::DATE < make_date(p_year, 1, 1)), 0)
+            -
+            (SELECT COALESCE(SUM(p.amount), 0) FROM payments p
+             WHERE p.apartment_number = p_apartment
+               AND date_trunc('year', p.payment_date)::DATE < make_date(p_year, 1, 1))
+    ))::NUMERIC(12,2) AS opening_balance
 ), monthly AS (
     SELECT m.month_no,
            o.opening_balance,
