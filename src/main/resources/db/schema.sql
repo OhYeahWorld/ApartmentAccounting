@@ -1,4 +1,22 @@
 -- ============================================================
+-- Суммы за месяц (вспомогательная IMMUTABLE-функция нужна для того,
+-- чтобы использовать её в табличном CHECK-ограничении:
+-- обычные подзапросы в CHECK запрещены).
+-- ============================================================
+CREATE OR REPLACE FUNCTION fn_month_movement(p_apartment INTEGER, p_period DATE)
+RETURNS NUMERIC(12,2)
+LANGUAGE sql IMMUTABLE
+AS $fn$
+    SELECT ROUND(
+        COALESCE((SELECT SUM(c.amount) FROM charges c
+                  WHERE c.apartment_number = p_apartment
+                    AND date_trunc('month', c.period)::DATE = p_period), 0)
+      - COALESCE((SELECT SUM(p.amount) FROM payments p
+                  WHERE p.apartment_number = p_apartment
+                    AND date_trunc('month', p.payment_date)::DATE = p_period), 0), 2)
+$fn$;
+
+-- ============================================================
 -- Таблица сальдо. Период всегда хранится как первый день месяца.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS saldo (
@@ -52,6 +70,13 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
 CREATE INDEX IF NOT EXISTS idx_payments_apartment ON payments(apartment_number);
 
+-- Инвариант БД: исходящее сальдо = входящее + начисления месяца - платежи месяца.
+-- CHECK добавляем после того, как таблицы charges/payments точно существуют.
+ALTER TABLE saldo DROP CONSTRAINT IF EXISTS ck_saldo_closing_formula;
+ALTER TABLE saldo ADD CONSTRAINT ck_saldo_closing_formula CHECK (
+    closing_balance = opening_balance + fn_month_movement(apartment_number, period)
+);
+
 -- ============================================================
 -- Триггеры сальдо:
 -- 1) нормализация периода к началу месяца;
@@ -70,6 +95,7 @@ DECLARE
     v_new_period       DATE := date_trunc('month', NEW.period)::DATE;
     v_charges          NUMERIC(12,2);
     v_payments         NUMERIC(12,2);
+    v_actual_opening   NUMERIC(12,2);
 BEGIN
     -- период не может лежать в будущем относительно текущей даты
     IF v_new_period > date_trunc('month', CURRENT_DATE)::DATE THEN
@@ -121,11 +147,20 @@ BEGIN
       AND date_trunc('month', p.payment_date)::DATE = v_new_period;
 
     IF TG_OP = 'UPDATE' THEN
-        -- при изменении нельзя разъезжать с предыдущим периодом
-        IF ROUND(NEW.opening_balance, 2) <> v_expected_opening THEN
+        -- при изменении нельзя разъезжать с предыдущим периодом.
+        -- В BEFORE-триггере OLD и NEW могут указывать на одну и ту же
+        -- физическую строку, поэтому фактическое входящее берем по id
+        -- из таблицы (если запись уже сохранена) — так подмена
+        -- opening_balance "в обход" предыдущего периода не пройдет.
+        v_actual_opening := COALESCE(
+            (SELECT s.opening_balance FROM saldo s WHERE s.id = NEW.id),
+            OLD.opening_balance);
+
+        IF v_prev_period IS NOT NULL
+           AND ROUND(v_actual_opening, 2) <> v_expected_opening THEN
             RAISE EXCEPTION
                 'Входящее сальдо (%) не совпадает с исходящим предыдущего периода (%)',
-                ROUND(NEW.opening_balance, 2), v_expected_opening;
+                ROUND(v_actual_opening, 2), v_expected_opening;
         END IF;
         IF ROUND(NEW.closing_balance, 2)
            <> ROUND(v_expected_opening + v_charges - v_payments, 2) THEN
@@ -198,16 +233,22 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    r    RECORD;
-    cur  NUMERIC(12,2);
-    calc NUMERIC(12,2);
+    r             RECORD;
+    cur           NUMERIC(12,2);
+    calc          NUMERIC(12,2);
+    v_prev_closing NUMERIC(12,2) := 0;
 BEGIN
     FOR r IN SELECT id, period, opening_balance
              FROM saldo
              WHERE apartment_number = p_apartment
              ORDER BY period
     LOOP
-        cur := r.opening_balance;
+        -- страховка для записей, появившихся мимо приложения:
+        -- входящее периода обязано равняться исходящему предыдущего
+        IF cur <> v_prev_closing THEN
+            UPDATE saldo SET opening_balance = v_prev_closing WHERE id = r.id;
+            cur := v_prev_closing;
+        END IF;
         SELECT ROUND(cur
                + COALESCE((SELECT SUM(c.amount) FROM charges c
                            WHERE c.apartment_number = p_apartment
@@ -223,6 +264,8 @@ BEGIN
         UPDATE saldo SET opening_balance = calc
         WHERE apartment_number = p_apartment
           AND period = (r.period + INTERVAL '1 month')::TIMESTAMP::DATE;
+
+        v_prev_closing := calc;
     END LOOP;
 END
 $$;

@@ -4,10 +4,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class DatabaseInitializer implements CommandLineRunner {
@@ -53,31 +59,129 @@ public class DatabaseInitializer implements CommandLineRunner {
 
     private boolean needsRebuild() {
         try {
-            Integer n = jdbc.queryForObject("""
+            Integer cols = jdbc.queryForObject("""
                     SELECT COUNT(*) FROM information_schema.columns
                     WHERE table_name = 'saldo' AND column_name IN ('created_at', 'updated_at')
                     """, Integer.class);
-            return n != null && n < 2;
+            if (cols == null || cols < 2) {
+                return true;
+            }
+            // старый вариант таблицы без CHECK-формулы закрытия периода
+            Integer checks = jdbc.queryForObject("""
+                    SELECT COUNT(*) FROM information_schema.check_constraints
+                    WHERE constraint_name = 'ck_saldo_closing_formula'
+                    """, Integer.class);
+            return checks == null || checks == 0;
         } catch (Exception e) {
             return false;
         }
     }
 
     private void runScript(String path) {
-        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
-        populator.setSqlScriptEncoding(StandardCharsets.UTF_8.name());
-        populator.addScript(new ClassPathResource(path));
-        populator.execute(jdbc.getDataSource());
+        String sql = readResource(path);
+        for (String statement : splitSqlStatements(sql)) {
+            try {
+                jdbc.execute(statement);
+            } catch (Exception e) {
+                throw new IllegalStateException(
+                        "Не удалось выполнить SQL-скрипт " + path + ":\n" + statement, e);
+            }
+        }
     }
 
     private void runFunction(String path) {
         try {
-            ClassPathResource resource = new ClassPathResource(path);
-            String sql = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            jdbc.execute(sql);
+            jdbc.execute(readResource(path));
         } catch (Exception e) {
             throw new IllegalStateException("Не удалось создать SQL-функцию: " + path, e);
         }
+    }
+
+    private String readResource(String path) {
+        try (InputStream in = new ClassPathResource(path).getInputStream()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Не удалось прочитать SQL-скрипт: " + path, e);
+        }
+    }
+
+    /**
+     * Разбивает SQL-скрипт на выражения по точке с запятой, НЕ разрывая
+     * dollar-quoted блоки ($$ ... $$), строковые литералы ('...') и кавычки
+     * идентификаторов ("..."). Spring ScriptUtils так не умеет и режет
+     * тела plpgsql-функций посередине.
+     */
+    static List<String> splitSqlStatements(String sql) {
+        List<String> statements = new ArrayList<>();
+        Pattern tagAt = Pattern.compile("(\\$[A-Za-z_][A-Za-z0-9_]*\\$)");
+        int i = 0;
+        int start = 0;
+        int len = sql.length();
+        while (i < len) {
+            char c = sql.charAt(i);
+            if (c == '\'' || c == '"') {
+                char quote = c;
+                i++;
+                while (i < len) {
+                    if (sql.charAt(i) == quote) {
+                        // '' / "" — экранированная кавычка
+                        if (i + 1 < len && sql.charAt(i + 1) == quote) {
+                            i += 2;
+                            continue;
+                        }
+                        i++;
+                        break;
+                    }
+                    i++;
+                }
+            } else if (c == '-' && i + 1 < len && sql.charAt(i + 1) == '-') {
+                // комментарий до конца строки
+                while (i < len && sql.charAt(i) != '\n') {
+                    i++;
+                }
+            } else if (c == '$') {
+                // dollar-quoted блок: $$...$$ или $tag$...$tag$
+                String tag;
+                int bodyStart;
+                if (i + 1 < len && sql.charAt(i + 1) == '$') {
+                    tag = "$$";
+                    bodyStart = i + 2;
+                } else {
+                    Matcher m = tagAt.matcher(sql);
+                    if (m.find(i) && m.start() == i) {
+                        tag = m.group(1);
+                        bodyStart = m.end();
+                    } else {
+                        tag = null;
+                        bodyStart = -1;
+                    }
+                }
+                if (tag != null) {
+                    int end = sql.indexOf(tag, bodyStart);
+                    if (end < 0) {
+                        throw new IllegalStateException(
+                                "Незакрытый dollar-quoted блок: " + tag);
+                    }
+                    i = end + tag.length();
+                } else {
+                    i++;
+                }
+            } else if (c == ';') {
+                String stmt = sql.substring(start, i).trim();
+                if (!stmt.isEmpty()) {
+                    statements.add(stmt);
+                }
+                i++;
+                start = i;
+            } else {
+                i++;
+            }
+        }
+        String tail = sql.substring(start).trim();
+        if (!tail.isEmpty()) {
+            statements.add(tail);
+        }
+        return statements;
     }
 
     private boolean isEmpty() {
