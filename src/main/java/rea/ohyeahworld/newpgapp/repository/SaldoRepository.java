@@ -19,23 +19,31 @@ public class SaldoRepository {
 
     public List<Saldo> findAll() {
         return jdbc.query("""
-                SELECT id, apartment_number, period, opening_balance, closing_balance
+                SELECT id, apartment_number, period, opening_balance, closing_balance,
+                       created_at, updated_at
                 FROM saldo
                 ORDER BY apartment_number, period
                 """, (rs, n) -> new Saldo(
                 rs.getLong("id"), rs.getInt("apartment_number"),
                 rs.getDate("period").toLocalDate(),
-                rs.getBigDecimal("opening_balance"), rs.getBigDecimal("closing_balance")));
+                rs.getBigDecimal("opening_balance"), rs.getBigDecimal("closing_balance"),
+                rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getTimestamp("updated_at") == null ? null
+                        : rs.getTimestamp("updated_at").toLocalDateTime()));
     }
 
     public Optional<Saldo> findById(long id) {
         return jdbc.query("""
-                SELECT id, apartment_number, period, opening_balance, closing_balance
+                SELECT id, apartment_number, period, opening_balance, closing_balance,
+                       created_at, updated_at
                 FROM saldo WHERE id = ?
                 """, (rs, n) -> new Saldo(
                 rs.getLong("id"), rs.getInt("apartment_number"),
                 rs.getDate("period").toLocalDate(),
-                rs.getBigDecimal("opening_balance"), rs.getBigDecimal("closing_balance")), id)
+                rs.getBigDecimal("opening_balance"), rs.getBigDecimal("closing_balance"),
+                rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getTimestamp("updated_at") == null ? null
+                        : rs.getTimestamp("updated_at").toLocalDateTime()), id)
                 .stream().findFirst();
     }
 

@@ -22,7 +22,7 @@ public class PaymentService {
     public void create(Integer apartmentNumber, LocalDate paymentDate,
                        BigDecimal amount, String description) {
         validate(apartmentNumber, paymentDate, amount);
-        paymentRepository.insert(new Payment(null, apartmentNumber, paymentDate, amount, description));
+        paymentRepository.insert(new Payment(null, apartmentNumber, paymentDate, amount, description, null, null));
     }
 
     public void update(Long id, Integer apartmentNumber, LocalDate paymentDate,
@@ -30,7 +30,7 @@ public class PaymentService {
         validate(apartmentNumber, paymentDate, amount);
         paymentRepository.findById(id)
                 .orElseThrow(() -> new DataValidationException("Платеж не найден."));
-        paymentRepository.update(new Payment(id, apartmentNumber, paymentDate, amount, description));
+        paymentRepository.update(new Payment(id, apartmentNumber, paymentDate, amount, description, null, null));
     }
 
     public void delete(long id) {
@@ -46,10 +46,7 @@ public class PaymentService {
         if (paymentDate == null) {
             throw new DataValidationException("Не указана дата платежа.");
         }
-        if (paymentDate.isAfter(LocalDate.now())) {
-            throw new DataValidationException(
-                    "Дата платежа " + paymentDate + " лежит в будущем — платеж принят быть не может.");
-        }
+        SaldoService.checkNotFutureDate(paymentDate, "Дата платежа");
         if (amount == null || amount.signum() < 0) {
             throw new DataValidationException("Сумма платежа не может быть отрицательной.");
         }

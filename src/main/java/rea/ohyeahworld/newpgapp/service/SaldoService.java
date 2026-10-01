@@ -50,22 +50,28 @@ public class SaldoService {
         BigDecimal expectedOpening = expectedOpening(apartmentNumber, normalized);
         BigDecimal expectedClosing = expectedClosing(apartmentNumber, normalized, expectedOpening);
 
-        // значения из формы проверяем только если они вообще заданы осмысленно;
-        // корректные значения всегда вычисляются сами
+        // значения из формы сверяются с эталонными: при расхождении
+        // запрос отклоняется, а не «молча» перезаписывается
         if (openingBalance != null && scale(openingBalance).compareTo(expectedOpening) != 0) {
             throw new DataValidationException(
-                    "Входящее сальдо должно равняться исходящему предыдущего периода: "
-                            + expectedOpening.stripTrailingZeros().toPlainString());
+                    "Входящее сальдо должно равняться исходящему предыдущего периода ("
+                            + expectedOpening.stripTrailingZeros().toPlainString()
+                            + "), получено " + scale(openingBalance).toPlainString() + ".");
         }
         if (closingBalance != null && scale(closingBalance).compareTo(expectedClosing) != 0) {
             throw new DataValidationException(
                     "Исходящее сальдо не сходится: входящее " + expectedOpening.toPlainString()
-                            + " + начисления - платежи = " + expectedClosing.toPlainString());
+                            + " + начисления - платежи = " + expectedClosing.toPlainString()
+                            + ", получено " + scale(closingBalance).toPlainString() + ".");
         }
 
         try {
+            // если пользователь ввел корректные значения — вставляем ровно их;
+            // иначе выше уже брошено исключение с объяснением расхождения
+            BigDecimal opening = openingBalance != null ? scale(openingBalance) : expectedOpening;
+            BigDecimal closing = closingBalance != null ? scale(closingBalance) : expectedClosing;
             saldoRepository.insert(new Saldo(null, apartmentNumber, normalized,
-                    expectedOpening, expectedClosing));
+                    opening, closing, null, null));
         } catch (DuplicateKeyException e) {
             throw new DataValidationException(
                     "Сальдо за квартиру " + apartmentNumber + " и период " + normalized
@@ -116,7 +122,7 @@ public class SaldoService {
 
         try {
             saldoRepository.update(new Saldo(id, apartmentNumber, normalized,
-                    openingBalance, closingBalance));
+                    openingBalance, closingBalance, null, null));
         } catch (DuplicateKeyException e) {
             throw new DataValidationException(
                     "Сальдо за квартиру " + apartmentNumber + " и период " + normalized
@@ -142,6 +148,18 @@ public class SaldoService {
             throw new DataValidationException("Не указан период.");
         }
         return period.withDayOfMonth(1);
+    }
+
+    /**
+     * Запись создается «в то время», к которому она относится: дата
+     * создания не может лежать в будущем относительно текущей даты.
+     */
+    static void checkNotFutureDate(LocalDate date, String what) {
+        if (date != null && date.isAfter(LocalDate.now())) {
+            throw new DataValidationException(
+                    what + " " + date + " лежит в будущем (сегодня " + LocalDate.now()
+                            + ") — операция отклонена.");
+        }
     }
 
     private void checkNotFuture(LocalDate period) {

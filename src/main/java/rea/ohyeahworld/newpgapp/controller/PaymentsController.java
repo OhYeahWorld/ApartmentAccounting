@@ -13,6 +13,7 @@ import rea.ohyeahworld.newpgapp.service.DataValidationException;
 import rea.ohyeahworld.newpgapp.service.PaymentService;
 
 import java.math.BigDecimal;
+import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
 
 @Controller
@@ -34,7 +35,7 @@ public class PaymentsController {
 
     @PostMapping("/create")
     public String create(@RequestParam Integer apartmentNumber,
-                         @RequestParam LocalDate paymentDate,
+                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate,
                          @RequestParam BigDecimal amount,
                          @RequestParam(required = false) String description,
                          RedirectAttributes redirect) {
@@ -53,7 +54,7 @@ public class PaymentsController {
     @PostMapping("/update")
     public String update(@RequestParam Long id,
                          @RequestParam Integer apartmentNumber,
-                         @RequestParam LocalDate paymentDate,
+                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate,
                          @RequestParam BigDecimal amount,
                          @RequestParam(required = false) String description,
                          RedirectAttributes redirect) {

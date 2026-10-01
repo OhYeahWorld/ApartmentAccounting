@@ -19,23 +19,31 @@ public class PaymentRepository {
 
     public List<Payment> findAll() {
         return jdbc.query("""
-                SELECT id, apartment_number, payment_date, amount, description
+                SELECT id, apartment_number, payment_date, amount, description,
+                       created_at, updated_at
                 FROM payments
                 ORDER BY payment_date DESC, apartment_number
                 """, (rs, n) -> new Payment(
                 rs.getLong("id"), rs.getInt("apartment_number"),
                 rs.getDate("payment_date").toLocalDate(), rs.getBigDecimal("amount"),
-                rs.getString("description")));
+                rs.getString("description"),
+                rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getTimestamp("updated_at") == null ? null
+                        : rs.getTimestamp("updated_at").toLocalDateTime()));
     }
 
     public Optional<Payment> findById(long id) {
         return jdbc.query("""
-                SELECT id, apartment_number, payment_date, amount, description
+                SELECT id, apartment_number, payment_date, amount, description,
+                       created_at, updated_at
                 FROM payments WHERE id = ?
                 """, (rs, n) -> new Payment(
                 rs.getLong("id"), rs.getInt("apartment_number"),
                 rs.getDate("payment_date").toLocalDate(), rs.getBigDecimal("amount"),
-                rs.getString("description")), id)
+                rs.getString("description"),
+                rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getTimestamp("updated_at") == null ? null
+                        : rs.getTimestamp("updated_at").toLocalDateTime()), id)
                 .stream().findFirst();
     }
 
