@@ -1,3 +1,6 @@
+-- Сводка по категориям должников на указанную дату.
+-- Сальдо считается от начала года; при отсутствии строки saldo на начало
+-- года входящее восстанавливается из истории начислений/платежей.
 CREATE OR REPLACE FUNCTION fn_debtor_categories(p_as_of DATE)
 RETURNS TABLE (
     apartment_number INTEGER,
@@ -10,6 +13,7 @@ RETURNS TABLE (
     over_three_months NUMERIC(12,2)
 )
 LANGUAGE sql
+STABLE
 AS $$
 WITH bounds AS (
     SELECT date_trunc('year', p_as_of)::DATE AS year_start,
@@ -28,7 +32,17 @@ WITH bounds AS (
                WHERE s.apartment_number = a.apartment_number
                  AND s.period = b.year_start
                LIMIT 1
-           ), 0)::NUMERIC(12,2) AS opening_balance,
+           ), (
+               SELECT COALESCE(
+                   (SELECT SUM(c.amount) FROM charges c
+                    WHERE c.apartment_number = a.apartment_number
+                      AND date_trunc('year', c.period)::DATE < b.year_start), 0)
+                   -
+                   (SELECT COALESCE(SUM(p.amount), 0) FROM payments p
+                    WHERE p.apartment_number = a.apartment_number
+                      AND date_trunc('year', p.payment_date)::DATE < b.year_start)
+               FROM bounds b
+           ))::NUMERIC(12,2) AS opening_balance,
            COALESCE((
                SELECT SUM(c.amount)
                FROM charges c, bounds b

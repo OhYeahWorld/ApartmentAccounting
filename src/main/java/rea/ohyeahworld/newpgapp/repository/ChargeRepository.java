@@ -4,8 +4,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import rea.ohyeahworld.newpgapp.model.Charge;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class ChargeRepository {
@@ -26,6 +28,37 @@ public class ChargeRepository {
                 rs.getString("description")));
     }
 
+    public Optional<Charge> findById(long id) {
+        return jdbc.query("""
+                SELECT id, apartment_number, period, amount, description
+                FROM charges WHERE id = ?
+                """, (rs, n) -> new Charge(
+                rs.getLong("id"), rs.getInt("apartment_number"),
+                rs.getDate("period").toLocalDate(), rs.getBigDecimal("amount"),
+                rs.getString("description")), id)
+                .stream().findFirst();
+    }
+
+    /** Есть ли начисление за эту квартиру и месяц (защита от повторного запроса). */
+    public boolean existsForPeriod(Integer apartmentNumber, LocalDate period) {
+        Long count = jdbc.queryForObject("""
+                SELECT COUNT(*) FROM charges
+                WHERE apartment_number = ?
+                  AND date_trunc('month', period)::DATE = date_trunc('month', ?)::DATE
+                """, Long.class, apartmentNumber, period);
+        return count != null && count > 0;
+    }
+
+    /** Сумма начислений квартиры за месяц, к которому относится дата. */
+    public BigDecimal sumForMonth(Integer apartmentNumber, LocalDate anyDayOfMonth) {
+        BigDecimal value = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(amount), 0) FROM charges
+                WHERE apartment_number = ?
+                  AND date_trunc('month', period)::DATE = date_trunc('month', ?)::DATE
+                """, BigDecimal.class, apartmentNumber, anyDayOfMonth);
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
     public void insert(Charge c) {
         jdbc.update("""
                 INSERT INTO charges(apartment_number, period, amount, description)
@@ -36,7 +69,7 @@ public class ChargeRepository {
     public void update(Charge c) {
         jdbc.update("""
                 UPDATE charges
-                SET apartment_number=?, period=?, amount=?, description=?
+                SET apartment_number=?, period=?, amount=?, description=?, updated_at = now()
                 WHERE id=?
                 """, c.apartmentNumber(), c.period(), c.amount(), c.description(), c.id());
     }

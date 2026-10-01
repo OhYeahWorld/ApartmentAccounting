@@ -1,3 +1,8 @@
+-- Оборотная ведомость за год.
+-- Входящее сальдо берется из saldo на 1 января; если записи нет —
+-- восстанавливается как накопительный итог по начислениям/платежам до года.
+-- Исходящее каждого месяца становится входящим следующего, поэтому
+-- исходящее сальдо периода всегда равно входящему следующему периоду.
 CREATE OR REPLACE FUNCTION fn_turnover_statement(p_year INTEGER)
 RETURNS TABLE (
     apartment_number INTEGER,
@@ -8,6 +13,7 @@ RETURNS TABLE (
     closing_balance NUMERIC(12,2)
 )
 LANGUAGE sql
+STABLE
 AS $$
 WITH months AS (
     SELECT generate_series(1, 12)::INTEGER AS month_no
@@ -25,7 +31,17 @@ WITH months AS (
                WHERE s.apartment_number = a.apartment_number
                  AND s.period = make_date(p_year, 1, 1)
                LIMIT 1
-           ), 0)::NUMERIC(12,2) AS opening_balance
+           ), (
+               -- восстановление: накопительный итог до начала года
+               SELECT COALESCE(
+                   (SELECT SUM(c.amount) FROM charges c
+                    WHERE c.apartment_number = a.apartment_number
+                      AND date_trunc('year', c.period)::DATE < make_date(p_year, 1, 1)), 0)
+                   -
+                   (SELECT COALESCE(SUM(p.amount), 0) FROM payments p
+                    WHERE p.apartment_number = a.apartment_number
+                      AND date_trunc('year', p.payment_date)::DATE < make_date(p_year, 1, 1))
+           ))::NUMERIC(12,2) AS opening_balance
     FROM apartments a
 ), monthly AS (
     SELECT o.apartment_number,
