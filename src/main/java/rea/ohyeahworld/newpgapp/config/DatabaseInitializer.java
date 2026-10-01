@@ -44,6 +44,7 @@ public class DatabaseInitializer implements CommandLineRunner {
             jdbc.execute("DROP FUNCTION IF EXISTS trg_charges_after_write() CASCADE");
             jdbc.execute("DROP FUNCTION IF EXISTS trg_payments_after_write() CASCADE");
             jdbc.execute("DROP FUNCTION IF EXISTS trg_charges_normalize_period() CASCADE");
+            jdbc.execute("DROP FUNCTION IF EXISTS fn_month_movement(INTEGER, DATE) CASCADE");
         }
 
         runScript("db/schema.sql");
