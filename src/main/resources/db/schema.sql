@@ -53,6 +53,18 @@ CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
 CREATE INDEX IF NOT EXISTS idx_payments_apartment ON payments(apartment_number);
 
 -- ============================================================
+-- Временные ограничения (CURRENT_DATE = «текущее время» БД):
+-- нельзя внести начисление за будущий период и платеж за будущую дату.
+-- ============================================================
+ALTER TABLE charges DROP CONSTRAINT IF EXISTS ck_charges_period_not_future;
+ALTER TABLE charges ADD CONSTRAINT ck_charges_period_not_future
+    CHECK (period <= date_trunc('month', CURRENT_DATE)::DATE);
+
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS ck_payments_date_not_future;
+ALTER TABLE payments ADD CONSTRAINT ck_payments_date_not_future
+    CHECK (payment_date <= CURRENT_DATE);
+
+-- ============================================================
 -- Суммы за месяц (вспомогательная IMMUTABLE-функция нужна для того,
 -- чтобы использовать её в табличном CHECK-ограничении:
 -- обычные подзапросы в CHECK запрещены).
@@ -130,6 +142,11 @@ BEGIN
                      AND s.period > v_new_period) THEN
             RAISE EXCEPTION 'Нельзя добавить период % раньше уже существующих периодов', v_new_period;
         END IF;
+        -- входящее и исходящее всегда вычисляются сами: значения из
+        -- формы перезаписываются корректными, поэтому два одинаковых
+        -- объекта или запись с несходящимся сальдо создать невозможно.
+        NEW.opening_balance := v_expected_opening;
+        NEW.closing_balance := ROUND(v_expected_opening + v_charges - v_payments, 2);
     ELSIF EXISTS (SELECT 1 FROM saldo s
                   WHERE s.apartment_number = NEW.apartment_number
                     AND s.period = v_new_period
@@ -224,6 +241,32 @@ DROP TRIGGER IF EXISTS saldo_after_update ON saldo;
 CREATE TRIGGER saldo_after_update
     AFTER UPDATE ON saldo
     FOR EACH ROW EXECUTE FUNCTION trg_saldo_after_write();
+
+DROP TRIGGER IF EXISTS payments_normalize_date ON payments;
+-- Платеж не может быть внесён задним числом «в будущее»: дата платежа
+-- обязана быть не позже текущей даты (CURRENT_DATE — время сервера БД).
+CREATE OR REPLACE FUNCTION trg_payments_before_write()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.payment_date > CURRENT_DATE THEN
+        RAISE EXCEPTION 'Дата платежа % лежит в будущем (сегодня %)',
+            NEW.payment_date, CURRENT_DATE;
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+DROP TRIGGER IF EXISTS payments_before_insert ON payments;
+CREATE TRIGGER payments_before_insert
+    BEFORE INSERT ON payments
+    FOR EACH ROW EXECUTE FUNCTION trg_payments_before_write();
+
+DROP TRIGGER IF EXISTS payments_before_update ON payments;
+CREATE TRIGGER payments_before_update
+    BEFORE UPDATE ON payments
+    FOR EACH ROW EXECUTE FUNCTION trg_payments_before_write();
 
 -- ============================================================
 -- После изменения начислений/платежей пересчитываем цепочку сальдо:

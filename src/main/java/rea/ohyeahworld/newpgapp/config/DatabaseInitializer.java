@@ -70,9 +70,11 @@ public class DatabaseInitializer implements CommandLineRunner {
             // старый вариант таблицы без CHECK-формулы закрытия периода
             Integer checks = jdbc.queryForObject("""
                     SELECT COUNT(*) FROM information_schema.check_constraints
-                    WHERE constraint_name = 'ck_saldo_closing_formula'
+                    WHERE constraint_name IN ('ck_saldo_closing_formula',
+                                              'ck_charges_period_not_future',
+                                              'ck_payments_date_not_future')
                     """, Integer.class);
-            return checks == null || checks == 0;
+            return checks == null || checks < 3;
         } catch (Exception e) {
             return false;
         }

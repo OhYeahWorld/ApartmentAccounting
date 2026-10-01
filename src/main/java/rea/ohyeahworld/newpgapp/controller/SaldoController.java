@@ -13,6 +13,7 @@ import rea.ohyeahworld.newpgapp.service.DataValidationException;
 import rea.ohyeahworld.newpgapp.service.SaldoService;
 
 import java.math.BigDecimal;
+import org.springframework.format.annotation.DateTimeFormat;
 import java.time.LocalDate;
 
 @Controller
@@ -34,7 +35,7 @@ public class SaldoController {
 
     @PostMapping("/create")
     public String create(@RequestParam Integer apartmentNumber,
-                         @RequestParam LocalDate period,
+                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate period,
                          @RequestParam(required = false) BigDecimal openingBalance,
                          @RequestParam(required = false) BigDecimal closingBalance,
                          RedirectAttributes redirect) {
@@ -54,7 +55,7 @@ public class SaldoController {
     @PostMapping("/update")
     public String update(@RequestParam Long id,
                          @RequestParam Integer apartmentNumber,
-                         @RequestParam LocalDate period,
+                         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate period,
                          @RequestParam BigDecimal openingBalance,
                          @RequestParam BigDecimal closingBalance,
                          RedirectAttributes redirect) {

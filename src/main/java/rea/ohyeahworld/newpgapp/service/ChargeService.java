@@ -24,6 +24,7 @@ public class ChargeService {
                        BigDecimal amount, String description) {
         LocalDate normalized = SaldoService.normalize(period);
         validate(apartmentNumber, amount);
+        SaldoService.checkNotFutureDate(normalized, "Период начисления");
 
         if (chargeRepository.existsForPeriod(apartmentNumber, normalized)) {
             throw new DataValidationException(
@@ -31,7 +32,7 @@ public class ChargeService {
                             + " уже существует — повторный запрос отклонен.");
         }
         try {
-            chargeRepository.insert(new Charge(null, apartmentNumber, normalized, amount, description));
+            chargeRepository.insert(new Charge(null, apartmentNumber, normalized, amount, description, null, null));
         } catch (DuplicateKeyException e) {
             throw new DataValidationException(
                     "Начисление за квартиру " + apartmentNumber + " и период " + normalized
@@ -53,7 +54,7 @@ public class ChargeService {
                             + " уже существует — изменение создало бы дубликат.");
         }
         try {
-            chargeRepository.update(new Charge(id, apartmentNumber, normalized, amount, description));
+            chargeRepository.update(new Charge(id, apartmentNumber, normalized, amount, description, null, null));
         } catch (DuplicateKeyException e) {
             throw new DataValidationException(
                     "Начисление за квартиру " + apartmentNumber + " и период " + normalized

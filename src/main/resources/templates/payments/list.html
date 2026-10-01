@@ -20,7 +20,7 @@
         <h2>Добавить платеж</h2>
         <form class="form-grid" method="post" th:action="@{/payments/create}">
             <label>Квартира<input required type="number" min="1" name="apartmentNumber"></label>
-            <label>Дата платежа<input required type="date" name="paymentDate" value="2017-01-15"></label>
+            <label>Дата платежа (не позже сегодняшней)<input required type="date" name="paymentDate"></label>
             <label>Сумма<input required type="number" min="0" step="0.01" name="amount"></label>
             <label>Описание<input type="text" maxlength="255" name="description" placeholder="Оплата ЖКУ"></label>
             <button class="button" type="submit">Добавить</button>
@@ -37,6 +37,8 @@
                     <th>Дата</th>
                     <th>Сумма</th>
                     <th>Описание</th>
+                    <th>Создано</th>
+                    <th>Изменено</th>
                     <th>Действия</th>
                 </tr>
                 </thead>
@@ -47,6 +49,8 @@
                     <td th:text="${item.paymentDate}">2017-01-15</td>
                     <td th:text="${#numbers.formatDecimal(item.amount,1,2)}">0.00</td>
                     <td th:text="${item.description}">Оплата ЖКУ</td>
+                    <td th:text="${item.createdAt != null ? #temporals.format(item.createdAt, 'dd.MM.yyyy HH:mm') : '—'}">01.01.2017 00:00</td>
+                    <td th:text="${item.updatedAt != null ? #temporals.format(item.updatedAt, 'dd.MM.yyyy HH:mm') : '—'}">—</td>
                     <td class="actions">
                         <details>
                             <summary class="button small">Изменить</summary>
@@ -71,7 +75,7 @@
                     </td>
                 </tr>
                 <tr th:if="${items.isEmpty()}">
-                    <td colspan="6" class="empty">Записей пока нет.</td>
+                    <td colspan="8" class="empty">Записей пока нет.</td>
                 </tr>
                 </tbody>
             </table>

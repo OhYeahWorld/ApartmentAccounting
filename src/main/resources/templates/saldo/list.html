@@ -20,9 +20,9 @@
         <h2>Добавить запись</h2>
         <form class="form-grid" method="post" th:action="@{/saldo/create}">
             <label>Квартира<input required type="number" min="1" name="apartmentNumber"></label>
-            <label>Период<input required type="date" name="period" value="2017-01-01"></label>
-            <label>Входящее сальдо<input required type="number" step="0.01" name="openingBalance" value="0"></label>
-            <label>Исходящее сальдо<input required type="number" step="0.01" name="closingBalance" value="0"></label>
+            <label>Период (создается «в то время», к которому относится запись)<input required type="month" name="period"></label>
+            <label>Входящее сальдо (подсказка: = исходящее предыдущего периода)<input type="number" step="0.01" name="openingBalance"></label>
+            <label>Исходящее сальдо (подсказка: входящее + начисления − платежи месяца)<input type="number" step="0.01" name="closingBalance"></label>
             <button class="button" type="submit">Добавить</button>
         </form>
     </section>
@@ -37,6 +37,8 @@
                     <th>Период</th>
                     <th>Входящее</th>
                     <th>Исходящее</th>
+                    <th>Создано</th>
+                    <th>Изменено</th>
                     <th>Действия</th>
                 </tr>
                 </thead>
@@ -47,6 +49,8 @@
                     <td th:text="${item.period}">2017-01-01</td>
                     <td th:text="${#numbers.formatDecimal(item.openingBalance,1,2)}">0.00</td>
                     <td th:text="${#numbers.formatDecimal(item.closingBalance,1,2)}">0.00</td>
+                    <td th:text="${item.createdAt != null ? #temporals.format(item.createdAt, 'dd.MM.yyyy HH:mm') : '—'}">01.01.2017 00:00</td>
+                    <td th:text="${item.updatedAt != null ? #temporals.format(item.updatedAt, 'dd.MM.yyyy HH:mm') : '—'}">—</td>
                     <td class="actions">
                         <details>
                             <summary class="button small">Изменить</summary>
@@ -54,8 +58,8 @@
                                 <input type="hidden" name="id" th:value="${item.id}">
                                 <label>Квартира<input required type="number" min="1" name="apartmentNumber"
                                                       th:value="${item.apartmentNumber}"></label>
-                                <label>Период<input required type="date" name="period"
-                                                    th:value="${item.period}"></label>
+                                <label>Период<input required type="month" name="period"
+                                                    th:value="${#temporals.format(item.period, 'yyyy-MM')}"></label>
                                 <label>Входящее<input required type="number" step="0.01" name="openingBalance"
                                                       th:value="${item.openingBalance}"></label>
                                 <label>Исходящее<input required type="number" step="0.01" name="closingBalance"
@@ -70,7 +74,7 @@
                     </td>
                 </tr>
                 <tr th:if="${items.isEmpty()}">
-                    <td colspan="6" class="empty">Записей пока нет.</td>
+                    <td colspan="8" class="empty">Записей пока нет.</td>
                 </tr>
                 </tbody>
             </table>

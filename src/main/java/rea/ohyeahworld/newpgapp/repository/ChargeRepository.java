@@ -19,23 +19,31 @@ public class ChargeRepository {
 
     public List<Charge> findAll() {
         return jdbc.query("""
-                SELECT id, apartment_number, period, amount, description
+                SELECT id, apartment_number, period, amount, description,
+                       created_at, updated_at
                 FROM charges
                 ORDER BY period DESC, apartment_number
                 """, (rs, n) -> new Charge(
                 rs.getLong("id"), rs.getInt("apartment_number"),
                 rs.getDate("period").toLocalDate(), rs.getBigDecimal("amount"),
-                rs.getString("description")));
+                rs.getString("description"),
+                rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getTimestamp("updated_at") == null ? null
+                        : rs.getTimestamp("updated_at").toLocalDateTime()));
     }
 
     public Optional<Charge> findById(long id) {
         return jdbc.query("""
-                SELECT id, apartment_number, period, amount, description
+                SELECT id, apartment_number, period, amount, description,
+                       created_at, updated_at
                 FROM charges WHERE id = ?
                 """, (rs, n) -> new Charge(
                 rs.getLong("id"), rs.getInt("apartment_number"),
                 rs.getDate("period").toLocalDate(), rs.getBigDecimal("amount"),
-                rs.getString("description")), id)
+                rs.getString("description"),
+                rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getTimestamp("updated_at") == null ? null
+                        : rs.getTimestamp("updated_at").toLocalDateTime()), id)
                 .stream().findFirst();
     }
 
