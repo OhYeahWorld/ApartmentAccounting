@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ведомость по квартире</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: nav}"></div>
+<main class="container wide">
+    <div class="page-head">
+        <div><p class="eyebrow">Отчет 2</p>
+            <h1>Оборотная ведомость по квартире №<span th:text="${report.apartmentNumber()}">1</span></h1></div>
+        <form class="inline-form" method="get" th:action="@{/reports/apartment}">
+            <label>Квартира<input required type="number" min="1" name="apartment"
+                                  th:value="${report.apartmentNumber()}"></label>
+            <label>Год<input required type="number" min="2000" max="2100" name="year"
+                             th:value="${report.year()}"></label>
+            <button class="button" type="submit">Показать</button>
+        </form>
+    </div>
+
+    <section class="panel report-panel">
+        <h2>Начисления и платежи по месяцам</h2>
+        <div class="table-scroll">
+            <table class="apartment-table">
+                <thead>
+                <tr>
+                    <th rowspan="2">На начало года<br>(+ долг / - переплата)</th>
+                    <th>01</th>
+                    <th>02</th>
+                    <th>03</th>
+                    <th>04</th>
+                    <th>05</th>
+                    <th>06</th>
+                    <th>07</th>
+                    <th>08</th>
+                    <th>09</th>
+                    <th>10</th>
+                    <th>11</th>
+                    <th>12</th>
+                    <th>Итого</th>
+                    <th>+ долг / - переплата</th>
+                </tr>
+                <tr class="subhead">
+                    <th colspan="14">Период: <span th:text="${report.year()}">2017</span></th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td rowspan="2" class="big-money" th:text="${#numbers.formatDecimal(report.openingBalance(),1,2)}">
+                        0.00
+                    </td>
+                    <td th:each="month : ${report.months()}" class="money"
+                        th:text="${#numbers.formatDecimal(month.chargesAmount(),1,2)}">0.00
+                    </td>
+                    <td class="money total" th:text="${#numbers.formatDecimal(report.yearCharges(),1,2)}">0.00</td>
+                    <td rowspan="2" class="money total" th:text="${#numbers.formatDecimal(report.endingPayable(),1,2)}">
+                        0.00
+                    </td>
+                </tr>
+                <tr>
+                    <td th:each="month : ${report.months()}" class="money"
+                        th:text="${#numbers.formatDecimal(month.paymentsAmount(),1,2)}">0.00
+                    </td>
+                    <td class="money total" th:text="${#numbers.formatDecimal(report.yearPayments(),1,2)}">0.00</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="report-total">Итого к оплате: <strong
+                th:text="${#numbers.formatDecimal(report.endingPayable(),1,2)}">0.00</strong></div>
+    </section>
+</main>
+</body>
+</html>

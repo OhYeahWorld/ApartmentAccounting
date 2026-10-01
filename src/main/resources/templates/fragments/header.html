@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title} + ' — rea.ohyeahworld.newpgapp'">Квартирный учет</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<header th:fragment="nav">
+    <div class="container topbar">
+        <a class="brand" th:href="@{/}">Квартирный учет</a>
+        <nav>
+            <a th:href="@{/saldo}">Сальдо</a>
+            <a th:href="@{/charges}">Начисления</a>
+            <a th:href="@{/payments}">Платежи</a>
+            <span class="nav-title">Отчеты</span>
+            <a th:href="@{/reports/turnover}">Оборотная</a>
+            <a th:href="@{/reports/apartment}">По квартире</a>
+            <a th:href="@{/reports/debtors}">Должники</a>
+        </nav>
+    </div>
+</header>
+<main class="container" th:fragment="content(content)">
+    <div th:replace="${content}"></div>
+</main>
+</body>
+</html>

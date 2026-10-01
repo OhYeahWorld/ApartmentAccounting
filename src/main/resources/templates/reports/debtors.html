@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Должники</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: nav}"></div>
+<main class="container wide">
+    <div class="page-head">
+        <div><p class="eyebrow">Отчет 3</p>
+            <h1>Сводка по категориям должников</h1></div>
+        <form class="inline-form" method="get" th:action="@{/reports/debtors}">
+            <label>По состоянию на<input required type="date" name="asOf" th:value="${asOf}"></label>
+            <button class="button" type="submit">Показать</button>
+        </form>
+    </div>
+
+    <section class="panel report-panel">
+        <h2>Должники по категориям по состоянию на <span
+                th:text="${#temporals.format(asOf,'dd.MM.yyyy')}">01.10.2017</span></h2>
+        <div class="table-scroll">
+            <table class="debtors-table">
+                <thead>
+                <tr>
+                    <th rowspan="2">Квартира</th>
+                    <th rowspan="2">Начислено<br>за последний месяц</th>
+                    <th rowspan="2">Сальдо</th>
+                    <th colspan="4">Задолженность</th>
+                </tr>
+                <tr>
+                    <th>1 месяц</th>
+                    <th>2 месяца</th>
+                    <th>3 месяца</th>
+                    <th>Свыше 3<br>месяцев</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${items}">
+                    <td class="center" th:text="${item.apartmentNumber()}">1</td>
+                    <td class="money" th:text="${#numbers.formatDecimal(item.lastCharge(),1,2)}">0.00</td>
+                    <td class="money" th:text="${#numbers.formatDecimal(item.balance(),1,2)}">0.00</td>
+                    <td class="money" th:text="${#numbers.formatDecimal(item.oneMonth(),1,2)}"></td>
+                    <td class="money" th:text="${#numbers.formatDecimal(item.twoMonths(),1,2)}"></td>
+                    <td class="money" th:text="${#numbers.formatDecimal(item.threeMonths(),1,2)}"></td>
+                    <td class="money" th:text="${#numbers.formatDecimal(item.overThreeMonths(),1,2)}"></td>
+                </tr>
+                <tr th:if="${items.isEmpty()}">
+                    <td colspan="7" class="empty">Должников нет.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

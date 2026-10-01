@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оборотная ведомость</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: nav}"></div>
+<main class="container wide">
+    <div class="page-head">
+        <div><p class="eyebrow">Отчет 1</p>
+            <h1>Оборотная ведомость за <span th:text="${year}">2017</span> год</h1></div>
+        <form class="inline-form" method="get" th:action="@{/reports/turnover}">
+            <label>Год<input type="number" name="year" min="2000" max="2100" th:value="${year}"></label>
+            <button class="button" type="submit">Показать</button>
+        </form>
+    </div>
+
+    <section class="panel report-panel">
+        <div class="hint">В каждой ячейке месяца: 1-я строка — начисления, 2-я — платежи, 3-я — сальдо на конец
+            месяца.
+        </div>
+        <div class="table-scroll">
+            <table class="turnover-table">
+                <thead>
+                <tr>
+                    <th>Квартира</th>
+                    <th>Вх. сальдо</th>
+                    <th>Январь</th>
+                    <th>Февраль</th>
+                    <th>Март</th>
+                    <th>Апрель</th>
+                    <th>Май</th>
+                    <th>Июнь</th>
+                    <th>Июль</th>
+                    <th>Август</th>
+                    <th>Сентябрь</th>
+                    <th>Октябрь</th>
+                    <th>Ноябрь</th>
+                    <th>Декабрь</th>
+                    <th>Исх. сальдо</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="apartment : ${items}">
+                    <td class="center" th:text="${apartment.apartmentNumber()}">1</td>
+                    <td class="money" th:text="${#numbers.formatDecimal(apartment.openingBalance(),1,2)}">0.00</td>
+                    <td th:each="month : ${apartment.months()}" class="triple-cell">
+                        <span th:text="${#numbers.formatDecimal(month.chargesAmount(),1,2)}">0.00</span>
+                        <span th:text="${#numbers.formatDecimal(month.paymentsAmount(),1,2)}">0.00</span>
+                        <span th:text="${#numbers.formatDecimal(month.closingBalance(),1,2)}">0.00</span>
+                    </td>
+                    <td class="money"
+                        th:text="${#numbers.formatDecimal(apartment.months().get(11).closingBalance(),1,2)}">0.00
+                    </td>
+                </tr>
+                <tr th:if="${items.isEmpty()}">
+                    <td colspan="15" class="empty">За выбранный год данных нет.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Платежи</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: nav}"></div>
+<main class="container">
+    <div class="page-head">
+        <div><p class="eyebrow">Таблица payments</p>
+            <h1>Платежи по лицевому счету</h1></div>
+    </div>
+    <div th:if="${message}" class="notice success" th:text="${message}"></div>
+    <div th:if="${error}" class="notice error" th:text="${error}"></div>
+
+    <section class="panel">
+        <h2>Добавить платеж</h2>
+        <form class="form-grid" method="post" th:action="@{/payments/create}">
+            <label>Квартира<input required type="number" min="1" name="apartmentNumber"></label>
+            <label>Дата платежа<input required type="date" name="paymentDate" value="2017-01-15"></label>
+            <label>Сумма<input required type="number" min="0" step="0.01" name="amount"></label>
+            <label>Описание<input type="text" maxlength="255" name="description" placeholder="Оплата ЖКУ"></label>
+            <button class="button" type="submit">Добавить</button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <div class="table-scroll">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Квартира</th>
+                    <th>Дата</th>
+                    <th>Сумма</th>
+                    <th>Описание</th>
+                    <th>Действия</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${items}">
+                    <td th:text="${item.id}">1</td>
+                    <td th:text="${item.apartmentNumber}">1</td>
+                    <td th:text="${item.paymentDate}">2017-01-15</td>
+                    <td th:text="${#numbers.formatDecimal(item.amount,1,2)}">0.00</td>
+                    <td th:text="${item.description}">Оплата ЖКУ</td>
+                    <td class="actions">
+                        <details>
+                            <summary class="button small">Изменить</summary>
+                            <form class="mini-form" method="post" th:action="@{/payments/update}">
+                                <input type="hidden" name="id" th:value="${item.id}">
+                                <label>Квартира<input required type="number" min="1" name="apartmentNumber"
+                                                      th:value="${item.apartmentNumber}"></label>
+                                <label>Дата<input required type="date" name="paymentDate"
+                                                  th:value="${item.paymentDate}"></label>
+                                <label>Сумма<input required type="number" min="0" step="0.01" name="amount"
+                                                   th:value="${item.amount}"></label>
+                                <label>Описание<input type="text" maxlength="255" name="description"
+                                                      th:value="${item.description}"></label>
+                                <button class="button small" type="submit">Сохранить</button>
+                            </form>
+                        </details>
+                        <form method="post" th:action="@{/payments/delete}"
+                              onsubmit="return confirm('Удалить запись?');">
+                            <input type="hidden" name="id" th:value="${item.id}">
+                            <button class="button small danger" type="submit">Удалить</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${items.isEmpty()}">
+                    <td colspan="6" class="empty">Записей пока нет.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

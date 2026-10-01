@@ -1,0 +1,13 @@
+1. PostgreSQL должен быть запущен.
+2. Создай БД "rea.ohyeahworld.newpgapp".
+3. Проверь логин/пароль в src/main/resources/application.properties.
+4. Открой проект в IntelliJ IDEA.
+5. Запусти rea.ohyeahworld.newpgapp.NewPgAppApplication.
+6. Открой http://localhost:8080
+
+Если PostgreSQL у тебя уже содержит старые таблицы от предыдущей попытки, один раз выполни в этой БД:
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS charges CASCADE;
+DROP TABLE IF EXISTS saldo CASCADE;
+
+После этого приложение создаст таблицы и SQL-функции само.

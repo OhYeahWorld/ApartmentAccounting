@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Квартирный учет</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<div th:replace="~{fragments/header :: nav}"></div>
+<main class="container">
+    <section class="hero">
+        <p class="eyebrow">Лабораторная работа №3</p>
+        <h1>Квартирный учет</h1>
+        <p>Заполнение трех таблиц и три отчетных модуля на основе SQL-функций PostgreSQL.</p>
+    </section>
+
+    <section class="cards">
+        <a class="stat-card" th:href="@{/saldo}">
+            <span>Сальдо</span>
+            <strong th:text="${saldoCount}">0</strong>
+        </a>
+        <a class="stat-card" th:href="@{/charges}">
+            <span>Начисления</span>
+            <strong th:text="${chargesCount}">0</strong>
+        </a>
+        <a class="stat-card" th:href="@{/payments}">
+            <span>Платежи</span>
+            <strong th:text="${paymentsCount}">0</strong>
+        </a>
+        <a class="stat-card accent" th:href="@{/reports/debtors(asOf=${asOf})}">
+            <span>Общая задолженность на 01.10.2017</span>
+            <strong th:text="${#numbers.formatDecimal(totalDebt, 1, 2)} + ' ₽'">0.00 ₽</strong>
+        </a>
+    </section>
+
+    <section class="panel">
+        <h2>Отчеты</h2>
+        <div class="report-links">
+            <a th:href="@{/reports/turnover(year=2017)}">Оборотная ведомость за 2017 год</a>
+            <a th:href="@{/reports/apartment(apartment=1,year=2017)}">Оборотная ведомость по квартире №1</a>
+            <a th:href="@{/reports/debtors(asOf='2017-10-01')}">Сводка по категориям должников</a>
+        </div>
+    </section>
+</main>
+</body>
+</html>
